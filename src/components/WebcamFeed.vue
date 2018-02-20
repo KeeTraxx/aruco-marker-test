@@ -11,7 +11,11 @@ export default {
   mounted () {
     console.log('WebcamFeed')
 
-    navigator.getUserMedia({ video: true }, stream => {
+    navigator.getUserMedia({
+      video: {
+        facingMode: { exact: "environment" }
+      }
+    }, stream => {
       this.$refs.video.src = window.URL.createObjectURL(stream)
     }, function (err) {
       throw err
