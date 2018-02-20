@@ -73,10 +73,12 @@ export default {
           context.closePath()
           context.strokeStyle = 'red'
           context.stroke()
+          context.font = '16px Consolas'
+          console.log(m)
+          context.fillText(m.id, this.offsetX + m.corners[0].x - 5, this.offsetY + m.corners[0].y - 5)
 
           let pos = poser.pose(m.corners)
 
-          context.font = '30px Consolas'
           context.fillStyle = 'blue'
           let rotation = [-Math.asin(-pos.bestRotation[1][2]), -Math.atan2(pos.bestRotation[0][2], pos.bestRotation[2][2]), Math.atan2(pos.bestRotation[1][0], pos.bestRotation[1][1])]
           context.fillText('Position: ' + pos.bestTranslation.map(n => n.toFixed(2)), 10, 50)
