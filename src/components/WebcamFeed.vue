@@ -4,14 +4,12 @@
 </template>
 <script>
 
-navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia
-
 export default {
   name: 'WebcamFeed',
   mounted () {
     console.log('WebcamFeed')
 
-    navigator.getUserMedia({
+    navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { exact: "environment" }
       }
