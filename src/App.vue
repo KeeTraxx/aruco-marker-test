@@ -1,7 +1,25 @@
 <template>
-  <div id="app">
-    <video ref="video" style="display:none"></video>
-    <canvas ref="canvas"></canvas>
+  <div id="app" ref="app">
+    <div id="canvasLayer">
+      <canvas ref="canvas"></canvas>
+    </div>
+    <div id="infoLayer">
+      <div class="markers">
+        <h2>Detected Markers</h2>
+        <div class="marker" v-for="(marker, index) in markers" :key="index">
+          <aruco-marker :arucoId="marker.id" :size="32" />
+          <div>
+            <ul v-for="(corner, index) in marker.corners" :key="index">
+              <li>{{corner.x}} / {{corner.y}}</li>
+            </ul>
+            <ul>
+              <li v-if="marker.pos">POS: {{marker.pos.bestTranslation}}</li>
+              <li v-if="marker.rotation">ROT: {{marker.rotation}}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -10,97 +28,71 @@ import WebcamFeed from './lib/WebcamFeed'
 import AR from './lib/AR'
 import POS from './lib/POS'
 import ArucoMarker from './components/ArucoMarker'
+import VideoDrawer from './lib/VideoDrawer'
+import MarkerDrawer from './lib/MarkerDrawer'
 
 let detector = new AR.Detector()
+let videoDrawer
+let markerDrawer
 let poser
+
 export default {
   name: 'App',
   components: {
     ArucoMarker
   },
+  data () {
+    return {
+      markers: []
+    }
+  },
   mounted () {
-    let feed = new WebcamFeed()
-    feed.requestWebcamFeed().then(stream => {
-      console.log(stream)
-      this.$refs.video.srcObject = stream
-    }).then(() => {
-      return new Promise(resolve => {
-        this.$refs.video.onloadedmetadata = resolve
-      })
-    }).then(() => {
-      this.ratio = this.$refs.video.videoWidth / this.$refs.video.videoHeight
-      console.log(this.$refs.video.videoWidth, this.$refs.video.videoHeight, this.ratio)
-      this.resizeCanvas()
-    }).then(() => {
-      this.$refs.video.play()
+    let feed = new WebcamFeed(this.$refs.app)
+    feed.requestWebcamFeed().then(videoEl => {
+      videoDrawer = new VideoDrawer(videoEl, this.$refs.canvas)
+      markerDrawer = new MarkerDrawer(this.$refs.canvas)
       this.draw()
     })
 
-    window.addEventListener('resize', () => this.resizeCanvas())
+    window.addEventListener('resize', () => this.onWindowResize())
+    this.onWindowResize()
   },
-  data () {
-    return {
-      scale: undefined,
-      offsetX: undefined,
-      offsetY: undefined
+  computed: {
+    ctx () {
+      return this.$refs.canvas.getContext('2d')
     }
   },
   methods: {
-    resizeCanvas () {
-      this.$refs.canvas.width = window.innerWidth
-      this.$refs.canvas.height = window.innerHeight
-      this.scale = Math.min(this.$refs.canvas.width / this.$refs.video.videoWidth, this.$refs.canvas.height / this.$refs.video.videoHeight)
-
-      this.offsetX = (this.$refs.canvas.width - this.$refs.video.videoWidth * this.scale) / 2
-      this.offsetY = (this.$refs.canvas.height - this.$refs.video.videoHeight * this.scale) / 2
+    onWindowResize () {
       poser = new POS.Posit(350, this.$refs.canvas.width)
     },
     draw () {
+      // requests animation frame depending on browser
       requestAnimationFrame(() => this.draw())
-      let context = this.$refs.canvas.getContext('2d')
-      context.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height)
-      this.$refs.canvas.getContext('2d').drawImage(this.$refs.video, this.offsetX, this.offsetY, this.$refs.video.videoWidth * this.scale, this.$refs.video.videoHeight * this.scale)
-      let image = context.getImageData(this.offsetX, this.offsetY, this.$refs.canvas.width, this.$refs.canvas.height)
-      let markers = detector.detect(image)
-      if (markers && markers.length > 0) {
-        markers.forEach(m => {
-          context.beginPath()
-          context.lineWidth = 10
-          context.moveTo(this.offsetX + m.corners[0].x, this.offsetY + m.corners[0].y)
-          for (let i = 1; i < 4; i++) {
-            context.lineTo(this.offsetX + m.corners[i].x, this.offsetY + m.corners[i].y)
-          }
-          context.closePath()
-          context.strokeStyle = 'red'
-          context.stroke()
-          context.font = '16px Consolas'
-          console.log(m)
-          context.fillText(m.id, this.offsetX + m.corners[0].x - 5, this.offsetY + m.corners[0].y - 5)
+      this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height)
+      // Draws video from video feed to canvas
+      videoDrawer.draw()
 
-          let pos = poser.pose(m.corners)
+      this.markers = detector.detect(videoDrawer.getImageData())
+      this.markers.forEach(m => {
+        m.pos = poser.pose(m.corners)
+        if (m.pos) {
+          m.rotation = [
+            -Math.asin(-m.pos.bestRotation[1][2]),
+            -Math.atan2(m.pos.bestRotation[0][2], m.pos.bestRotation[2][2]),
+            Math.atan2(m.pos.bestRotation[1][0], m.pos.bestRotation[1][1])
+          ]
+        }
+      })
 
-          context.fillStyle = 'blue'
-          let rotation = [-Math.asin(-pos.bestRotation[1][2]), -Math.atan2(pos.bestRotation[0][2], pos.bestRotation[2][2]), Math.atan2(pos.bestRotation[1][0], pos.bestRotation[1][1])]
-          context.fillText('Position: ' + pos.bestTranslation.map(n => n.toFixed(2)), 10, 50)
-          context.fillText('Rotation: ' + rotation.map(n => n.toFixed(2)), 10, 70)
-        })
-      } else {
-        context.font = '30px Consolas'
-        context.fillStyle = 'blue'
-        context.fillText('No markers detected', 10, 50)
-      }
+      markerDrawer.draw(this.markers, videoDrawer.offsetX, videoDrawer.offsetY)
     }
   }
 }
 </script>
 
-<style>
-* {
-  padding: 0;
-  margin: 0;
-}
-
-canvas {
+<style scoped>
+#app > div {
   position: fixed;
   top: 0;
   right: 0;
@@ -108,8 +100,30 @@ canvas {
   left: 0;
 }
 
+#infoLayer {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.markers {
+  flex: 0 0 300px;
+}
+
 .marker {
-  width: 300px;
-  height: 300px;
+  display: flex;
+  flex-direction: row;
+}
+
+.marker ul {
+  margin: 0;
+}
+</style>
+
+<style>
+html,
+body {
+  padding: 0;
+  margin: 0;
 }
 </style>

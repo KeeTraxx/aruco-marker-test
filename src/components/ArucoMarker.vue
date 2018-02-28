@@ -1,25 +1,22 @@
 <template>
-<div>
-  <svg xmlns="http://www.w3.org/2000/svg" ref="svg" viewBox="0 0 7 7" preserveAspectRatio="meet xMidYMid" @click="id++">
-    <rect x="0" y="0" width="7" height="7"/>
-    <g transform="translate(1,1)">
-      <rect v-for="(pos, index) in matrix" v-if="pos === 1" :key="index" :x="index % 5" :y="~~(index / 5)" width="1" height="1" />
-    </g>
-  </svg>
-  <img alt="bla" title="bla" v-if="this.$refs.svg" width="100" height="100" :src="'data:image/svg+xml;base64,' + btoa(this.$refs.svg.outerHTML)" />
-</div>
+  <img :width="size" :height="size" :src="'data:image/svg+xml;base64,' + svg" />
 </template>
+
 <script>
 export default {
   name: 'ArucoMarker',
   props: {
-    id: {
-      default: 1,
-      type: Number
+    arucoId: {
+      type: Number,
+      required: true
+    },
+    size: {
+      type: Number,
+      default: 200
     }
   },
   computed: {
-    matrix () {
+    svg () {
       let ids = [16, 23, 9, 14]
       let index, val, x, y
       let matrix = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
@@ -35,18 +32,24 @@ export default {
           }
         }
       }
-      return matrix.reduce((prev, curr) => prev.concat(curr), [])
-    }
-  },
-  methods: {
-    btoa (input) {
-      return window.btoa(input)
+
+      let image = '<svg viewBox="0 0 7 7" version="1.1" xmlns="http://www.w3.org/2000/svg">\n<rect x="0" y="0" width="7" height="7" fill="black"/>\n'
+
+      for (x = 0; x < 5; x++) {
+        for (y = 0; y < 5; y++) {
+          if (matrix[x][y] === 1) {
+            image += '  <rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="1" height="1" fill="white" ' +
+              // Slight stroke to get around aliasing issues with adjacent rectangles
+              'stroke="white" stroke-width="0.01" />'
+          }
+        }
+      }
+
+      image += '</svg>'
+
+      return window.btoa(image)
     }
   }
 }
+
 </script>
-<style scoped>
-g rect {
-  fill: white;
-}
-</style>
