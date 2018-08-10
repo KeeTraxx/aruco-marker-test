@@ -26,6 +26,8 @@ WebcamFeed.prototype.requestWebcamFeed = function () {
     return onLoadedMetaData(videoElement)
   }).then(metadata => {
     return videoElement
+  }).catch(err => {
+    console.error('Error getting video stream', err)
   })
 }
 
