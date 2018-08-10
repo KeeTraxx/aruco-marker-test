@@ -22,7 +22,13 @@ WebcamFeed.prototype.requestWebcamFeed = function () {
     }
   }).then(stream => {
     console.log('Got stream', stream)
-    videoElement.srcObject = stream
+    try {
+      videoElement.srcObject = stream
+    } catch (error) {
+      // Fallback to video.src
+      console.log('<video>.srcOject not supported, falling back to <video>.src')
+      video.src = URL.createObjectURL(mediaSource);
+    }
     return onLoadedMetaData(videoElement)
   }).then(metadata => {
     return videoElement
